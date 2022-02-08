@@ -51,7 +51,7 @@ class Splatter_Conv2d(torch.autograd.Function):
     def forward(ctx, input, filter, bias):
         # detach so we can cast to NumPy
         input, filter, bias = input.detach(), filter.detach(), bias.detach()
-        result = splat_conv2d(input.numpy(), filter.numpy())
+        result = splat_conv2d(input.numpy(), filter.numpy()) # supposed to be correlate
         result += bias.numpy()
         ctx.save_for_backward(input, filter, bias)
         return torch.as_tensor(result, dtype=input.dtype)
