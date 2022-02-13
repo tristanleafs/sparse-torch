@@ -48,22 +48,22 @@ class Splatter(Module):
 
 """testing  gradients show they are accuarate up to .001 which sucks"""
 
-# # test 1
-module = Splatter(3, 3)
-print("Filter and bias: ", list(module.parameters()))
-input = torch.randn(10, 10, requires_grad=True)
-output = module(input)
-print("Output from the convolution: ", output)
-print("here?")
-output.backward(torch.randn(8, 8))
-print("Gradient for the input map: ", input.grad)
+# # # test 1
+# module = Splatter(3, 3)
+# print("Filter and bias: ", list(module.parameters()))
+# input = torch.randn(10, 10, requires_grad=True)
+# output = module(input)
+# print("Output from the convolution: ", output)
+# print("here?")
+# output.backward(torch.randn(8, 8))
+# print("Gradient for the input map: ", input.grad)
 
-print("test 1 passed")
-# test 2
+# print("test 1 passed")
+# # test 2
 
 
-moduleConv = Splatter(3, 3)
+# moduleConv = Splatter(3, 3)
 
-input = [torch.randn(20, 20, dtype=torch.double, requires_grad=True)]
-test = gradcheck(moduleConv, input, eps=1e-3, atol=1e-4)
-print("Are the gradients correct: ", test)
+# input = [torch.randn(20, 20, dtype=torch.double, requires_grad=True)]
+# test = gradcheck(moduleConv, input, eps=1e-3, atol=1e-4)
+# print("Are the gradients correct: ", test)
