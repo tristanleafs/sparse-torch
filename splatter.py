@@ -60,6 +60,8 @@ def splat_conv2d(input, kernel, mode=''):
 
 def splat_corr2d(input, kernel, mode=''):
    
+
+   
     # print("starting convolution")
     kernel = np.flipud(np.fliplr(kernel))
 
