@@ -29,19 +29,19 @@ class ScipyConv2dFunction(torch.autograd.Function):
         return torch.from_numpy(grad_input), torch.from_numpy(grad_filter).to(torch.float), torch.from_numpy(grad_bias).to(torch.float)
 
 
-class ScipyConv2d(Module):
-    def __init__(self, filter_width, filter_height):
-        super(ScipyConv2d, self).__init__()
-        self.filter = Parameter(torch.randn(filter_width, filter_height))
-        self.bias = Parameter(torch.randn(1, 1))
+# class ScipyConv2d(Module):
+#     def __init__(self, filter_width, filter_height):
+#         super(ScipyConv2d, self).__init__()
+#         self.filter = Parameter(torch.randn(filter_width, filter_height))
+#         self.bias = Parameter(torch.randn(1, 1))
 
-    def forward(self, input):
-        return ScipyConv2dFunction.apply(input, self.filter, self.bias)
+#     def forward(self, input):
+#         return ScipyConv2dFunction.apply(input, self.filter, self.bias)
 
-from torch.autograd.gradcheck import gradcheck
+# from torch.autograd.gradcheck import gradcheck
 
-moduleConv = ScipyConv2d(3, 3)
+# moduleConv = ScipyConv2d(3, 3)
 
-input = [torch.randn(20, 20, dtype=torch.double, requires_grad=True)]
-test = gradcheck(moduleConv, input, eps=1e-6, atol=1e-4)
-print("Are the gradients correct: ", test)
+# input = [torch.randn(20, 20, dtype=torch.double, requires_grad=True)]
+# test = gradcheck(moduleConv, input, eps=1e-6, atol=1e-4)
+# print("Are the gradients correct: ", test)

@@ -165,7 +165,7 @@ def splat_corr2d(large_input, large_kernel, mode=''):
                 kernel = large_kernel[input_index][channel_index]
             # else:
             #     kernel = large_kernel
-   
+            
             # print("starting convolution")
             kernel = np.flipud(np.fliplr(kernel))
 
@@ -219,8 +219,10 @@ def splat_corr2d(large_input, large_kernel, mode=''):
                     else:
                         output =  output[rows-1:-rows, cols-1:-cols]
                 if(odd):
+                    
                     output = output[2*weightIndex:-2*weightIndex, 2*weightIndex:-2*weightIndex]
                 else:
+                    
                     output =  output[2*weightIndex-1:-2*weightIndex ,2*weightIndex-1:-2*weightIndex]
             else: 
                 output = output[weightIndex:-weightIndex, weightIndex:-weightIndex]
