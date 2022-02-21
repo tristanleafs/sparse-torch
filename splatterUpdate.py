@@ -162,6 +162,7 @@ def splat_corr2d(large_input, large_kernel, mode=''):
 
             kernel = large_kernel
             if(len(large_kernel.shape) > 2):
+                # print(input.shape, kernel.shape)
                 kernel = large_kernel[input_index][channel_index]
             # else:
             #     kernel = large_kernel

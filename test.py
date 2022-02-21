@@ -40,8 +40,8 @@ print(output2.shape)
 
 print(output1[0][0])
 print(output2[0][0])
-print(correlate2d(input[0][0], kernel[0][0], mode="valid"))
-print(splatter_backward_filter(input[0][0], kernel[0][0]))
+# print(correlate2d(input[0][0], kernel[0][0], mode="valid"))
+# print(splatter_backward_filter(input[0][0], kernel[0][0]))
 
 print(f"vanilla time: {vanilla_time}")
 print(f"c optimized time: {c_time}")

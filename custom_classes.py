@@ -1,11 +1,11 @@
 from numpy import flip
 import numpy as np
-from scipy.signal import convolve2d, correlate2d
+# from scipy.signal import convolve2d, correlate2d
 from torch.nn.modules.module import Module
 from torch.nn.parameter import Parameter
-from splatterUpdate import splat_conv2d, splat_corr2d
+# from splatterUpdate import splat_conv2d, splat_corr2d
 import torch
-from torch.autograd.gradcheck import gradcheck
+# from torch.autograd.gradcheck import gradcheck
 from call_splatter import splatter_forward_full, splatter_backward_input_full, splatter_backward_filter_full
 
 
@@ -67,6 +67,6 @@ class Splatter(Module):
 
 # moduleConv = Splatter(3, 3)
 
-# input = [torch.randn(40, 1, 20, 20, dtype=torch.double, requires_grad=True)]
+# input = [torch.randn(1, 1, 20, 20, dtype=torch.double, requires_grad=True)]
 # test = gradcheck(moduleConv, input, eps=1e-3, atol=1e-4)
 # print("Are the gradients correct: ", test)
