@@ -1,8 +1,9 @@
+import scipy
 import torch 
 import numpy as np
 from scipy.signal import convolve2d, correlate2d
 from splatterUpdate import splat_conv2d, splat_corr2d
-from call_splatter import splatter_backward_input_full, splatter_backward_filter_full, splatter_backward_filter
+from call_splatter import splatter_backward_input_full, splatter_backward_filter_full, splatter_backward_filter, splatter_forward
 import time
 
 # input = np.random.rand(65536)
@@ -10,19 +11,19 @@ import time
 # kernel = np.random.rand(9)
 # kernel = kernel.reshape((3,3))
 
-input = torch.rand(3, 1, 16, 16).numpy()
-kernel = torch.rand(3, 1, 14, 14).numpy()
+input = torch.rand(1000, 1000, dtype = torch.float64).numpy()
+kernel = torch.rand(3,3, dtype=torch.float64).numpy()
 
 # print(input)
 
 t0 = time.perf_counter()
-output1 = splat_corr2d(input, kernel, mode="valid")
+output1 = convolve2d(input, kernel, mode="valid")
 t1 = time.perf_counter()
 
 vanilla_time = t1-t0
 
 t0 = time.perf_counter()
-output2 = splatter_backward_filter_full(input, kernel)
+output2 = splatter_forward(input, kernel)
 t1 = time.perf_counter()
 
 c_time = t1-t0
@@ -38,8 +39,8 @@ c_time = t1-t0
 print(output1.shape)
 print(output2.shape)
 
-print(output1[0][0])
-print(output2[0][0])
+# print(output1)
+# print(output2)
 # print(correlate2d(input[0][0], kernel[0][0], mode="valid"))
 # print(splatter_backward_filter(input[0][0], kernel[0][0]))
 

@@ -1,5 +1,6 @@
 import numpy as np
 import ctypes
+import torch
 from numpy.ctypeslib import ndpointer 
 from splatter import splat_corr2d, splat_conv2d
 from itertools import repeat
@@ -22,6 +23,7 @@ splatter_lib.splatterBackwardFilter.argtypes = (ctypes.c_int32, ctypes.c_int32, 
             _doublepp, _doublepp, _doublepp
             )
 
+@profile
 def splatter_forward(input,kernel):
     
     weightIndex = kernel.shape[0] -2
@@ -29,7 +31,7 @@ def splatter_forward(input,kernel):
     rows, cols = input.shape
     padInput = np.zeros((rows + weightIndex*2, cols + weightIndex*2))
     padInput[weightIndex:-weightIndex, weightIndex:-weightIndex] = input
-    output = np.zeros(padInput.shape)
+    output = np.zeros_like(padInput)
 
     inputpp = (padInput.__array_interface__['data'][0] 
         + np.arange(padInput.shape[0])*padInput.strides[0]).astype(np.uintp) 
@@ -53,6 +55,7 @@ def splatter_forward(input,kernel):
     output = output[2*weightIndex:-2*weightIndex, 2*weightIndex:-2*weightIndex]
     return output
 
+@profile
 def splatter_forward_full(input, kernel):
     N , channels, height, width = input.shape
     weight_index = kernel.shape[0]-2
@@ -68,6 +71,7 @@ def splatter_forward_full(input, kernel):
     
     return output
 
+@profile
 def splatter_backward_input(input, kernel):
     
     # input = input[0]
@@ -76,7 +80,7 @@ def splatter_backward_input(input, kernel):
     rows, cols = input.shape
     padInput = np.zeros((rows + weightIndex*2, cols + weightIndex*2))
     padInput[weightIndex:-weightIndex, weightIndex:-weightIndex] = input
-    output = np.zeros(padInput.shape)
+    output = np.zeros_like(padInput)
 
     inputpp = (padInput.__array_interface__['data'][0] 
         + np.arange(padInput.shape[0])*padInput.strides[0]).astype(np.uintp) 
@@ -100,7 +104,7 @@ def splatter_backward_input(input, kernel):
     # output = output[2*weightIndex:-2*weightIndex, 2*weightIndex:-2*weightIndex]
     # print(output)
     return output
-
+@profile
 def splatter_backward_input_full(input, kernel):
     N , channels, height, width = input.shape
     weight_index = kernel.shape[0]-2
@@ -117,6 +121,7 @@ def splatter_backward_input_full(input, kernel):
     
     return output
 
+@profile
 def splatter_backward_filter(input, kernel):
     # print(input.shape,kernel.shape)
     input = input[0]
@@ -153,7 +158,7 @@ def splatter_backward_filter(input, kernel):
     # output = output[2*weightIndex:-2*weightIndex, 2*weightIndex:-2*weightIndex]
     
     return output.reshape(1,*output.shape)
-
+@profile
 def splatter_backward_filter_full(input, kernel):
     N , channels, height, width = input.shape
     weight_index = int(kernel.shape[2]/2)
@@ -171,27 +176,16 @@ def splatter_backward_filter_full(input, kernel):
     output[:,:] = np.array(list(map(splatter_backward_filter, input[:,:] , kernel[:,:])))
     
     return output
+@profile
+def test():
 
-# input = np.random.rand(256)
-# input = input.reshape((16,16))
-# input2 = copy.deepcopy(input)
-# kernel = np.random.rand(196)
-# kernel = kernel.reshape((14,14))
+    input = torch.rand(100,1,64,64)
+    kernel = torch.rand(3,3)
+    kernels = torch.rand(100, 1, 3,3)
 
-# weightIndex = 1
-# rows = 7
-# cols = 7
-# kernelSize = 3
+    output = splatter_forward_full(input, kernel)
+    inputs = splatter_backward_input_full(output, kernel)
+    filters = splatter_backward_filter_full(input, kernels)
 
-# output1 = splatter_backward_filter(input, kernel)
-# output2 = correlate2d(input, kernel, mode="valid")
-
-# print(output1.shape)
-# print(output2.shape)
-
-# print(output1)
-# print()
-# print(output2)
-
-# print(np.array_equal(output1, output2))
-
+test()
+print("done")

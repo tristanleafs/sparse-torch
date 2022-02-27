@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 
-void test(int rows, int cols, double **arr){
+void test(int rows, int cols, double arr){
 
     printf("rows: %d, cols: %d\n", rows, cols);
     for(int i = 0; i < rows; i++){
