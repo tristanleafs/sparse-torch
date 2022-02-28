@@ -4,6 +4,7 @@ import torch
 from numpy.ctypeslib import ndpointer 
 from splatter import splat_corr2d, splat_conv2d
 from itertools import repeat
+import splatter_cpp
 # import copy
 # from scipy.signal import correlate2d, convolve2d
 
@@ -179,11 +180,11 @@ def splatter_backward_filter_full(input, kernel):
 @profile
 def test():
 
-    input = torch.rand(100,1,64,64)
+    input = torch.rand(100,1,128,128)
     kernel = torch.rand(3,3)
     kernels = torch.rand(100, 1, 3,3)
 
-    output = splatter_forward_full(input, kernel)
+    output = splatter_cpp.forward(input, kernel)
     inputs = splatter_backward_input_full(output, kernel)
     filters = splatter_backward_filter_full(input, kernels)
 
