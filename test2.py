@@ -180,7 +180,7 @@ def splatter_backward_filter_full(input, kernel):
 @profile
 def test():
 
-    input = torch.rand(100,1,128,128)
+    input = torch.rand(100,1,256,256)
     kernel = torch.rand(3,3)
     kernels = torch.rand(100, 1, 3,3)
 

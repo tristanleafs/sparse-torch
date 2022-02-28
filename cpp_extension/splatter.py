@@ -33,7 +33,7 @@ class Splatter_Conv2d(torch.autograd.Function):
         input, filter, bias = ctx.saved_tensors
         grad_output = grad_output.numpy()
         grad_bias = np.sum(grad_output, keepdims=True)
-        grad_input = splatter_cpp.backward(grad_output, filter.numpy())
+        grad_input, grad_filter = splatter_cpp.backward(grad_output, filter, input)
         # the previous line can be expressed equivalently as:
         # grad_input = correlate2d(grad_output, flip(flip(filter.numpy(), axis=0), axis=1), mode='full')
         # grad_filter = splat_corr2d(input.numpy(), grad_output, mode="valid") # was correlate
@@ -57,46 +57,43 @@ class Splatter(Module):
 
 # torch.manual_seed(1)
 
-# input = torch.rand((40,1,6,6), dtype=torch.float32)
-# kernel = torch.rand((3,3), dtype=torch.float32)
+input = torch.rand((1,1,8,8), dtype=torch.float32)
+kernel = torch.rand((1,1,3,3), dtype=torch.float32)
+input2 = torch.rand((1,1,10,10), dtype=torch.float32)
 
-# print(input)
-# print()
+print(input)
+print()
 
-# t0 = time.perf_counter()
-# output1 = splatter_cpp.forward(input, kernel)
-# t1 = time.perf_counter()
+t0 = time.perf_counter()
+output1 = splatter_cpp.backward(input, kernel, input2)[1]
+t1 = time.perf_counter()
 
-# time1 = t1-t0
+time1 = t1-t0
 
-# t0 = time.perf_counter()
-# output2 = correlate2d(input[0][0].numpy(), kernel, mode="valid")
-# t1 = time.perf_counter()
+t0 = time.perf_counter()
+output2 = correlate2d(input2[0][0].numpy(), input[0][0].numpy(), mode="valid")
+t1 = time.perf_counter()
 
-# time2 = t1-t0
-
-
-
-# if(np.array_equal(output1[0].numpy(), output2)):
-#     print("Trur")
-# else:
-#     print("False")
-# print(output1)
-# print()
-# print(torch.tensor(output2))
+time2 = t1-t0
 
 
-# print(f"time 1: {time1}")
-# print(f"time 2: {time2}")
+
+print(output1)
+print()
+print(torch.tensor(output2))
+
+
+print(f"time 1: {time1}")
+print(f"time 2: {time2}")
 
 
 # # test 1
-module = Splatter(3, 3)
-# print("Filter and bias: ", list(module.parameters()))
-input = torch.randn(40, 1 , 10, 10, requires_grad=True)
-output = module(input)
-# print(output)
-print("Output from the convolution: ", output)
+# module = Splatter(3, 3)
+# # print("Filter and bias: ", list(module.parameters()))
+# input = torch.randn(40, 1 , 10, 10, requires_grad=True)
+# output = module(input)
+# # print(output)
+# print("Output from the convolution: ", output)
 # # print("here?")
 # # output.backward(torch.randn(8, 8))
 # # print("Gradient for the input map: ", input.grad)
