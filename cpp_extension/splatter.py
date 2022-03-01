@@ -57,18 +57,22 @@ class Splatter(Module):
 
 # torch.manual_seed(1)
 
-input = torch.rand((1,1,8,8), dtype=torch.float32)
-kernel = torch.rand((1,1,3,3), dtype=torch.float32)
-input2 = torch.rand((1,1,10,10), dtype=torch.float32)
+input = torch.rand((4,1,8,8), dtype=torch.float32)
+kernel = torch.rand((4,1,3,3), dtype=torch.float32)
+input2 = torch.rand((4,1,10,10), dtype=torch.float32)
 
-print(input)
-print()
+# print(input)
+# print()
+
+
+# print(torch.tensor(output2))
 
 t0 = time.perf_counter()
-output1 = splatter_cpp.backward(input, kernel, input2)[1]
+output1 = splatter_cpp.backward(input, kernel, input2)
 t1 = time.perf_counter()
 
 time1 = t1-t0
+
 
 t0 = time.perf_counter()
 output2 = correlate2d(input2[0][0].numpy(), input[0][0].numpy(), mode="valid")
