@@ -123,11 +123,11 @@ torch::Tensor splatter_forward(
   //   std::cout << std::endl << std::endl;
   // }
 
-  auto options = torch::TensorOptions().dtype(torch::kFloat32);
+  // auto options = torch::TensorOptions().dtype(torch::kFloat32);
 
   //{batch*channels*(rows)*(cols),(rows)*(cols),cols,1}
 
-  auto new_output = torch::from_blob(output_arr, {batch, channels, rowsFinal, colsFinal}, options);
+  torch::Tensor new_output = torch::from_blob(output_arr, {batch, channels, rowsFinal, colsFinal});
   // delete output_arr;
   // delete output_padded_arr;
   // delete kernel_arr;
@@ -158,11 +158,8 @@ std::vector<torch::Tensor> splatter_backward(
   int grad_output_cols = grad_output.size(3);
   
 
-  int kernelSize = kernel.size(2);
+  int kernelSize = kernel.size(0);
   int kernelIndex = kernelSize/2;
-
-  int rowsPadded = input_rows + 2*kernelIndex;
-  int colsPadded = input_cols + 2*kernelIndex;
 
   int grad_input_rows = grad_output_rows + 2*kernelIndex;
   int grad_input_cols = grad_output_cols + 2*kernelIndex;
@@ -170,15 +167,18 @@ std::vector<torch::Tensor> splatter_backward(
   int grad_index_y = grad_output_rows/2;
   int grad_index_x = grad_output_cols/2;
 
+  int rowsPadded = input_rows + 2*grad_index_y;
+  int colsPadded = input_cols + 2*grad_index_x;
+
   int rowsFinal = input_rows - 2*grad_index_y+1;
   int colsFinal = input_cols - 2*grad_index_x+1;
 
 
 
 
-  torch::Tensor output = torch::zeros({batch, channels, input_rows-(2*grad_index_y)+1, input_cols-(2*grad_index_x)+1});
-  torch::Tensor outputPadded = torch::zeros({batch, channels, input_rows+(2*kernelIndex), input_cols+(2*kernelIndex)});
-  torch::Tensor gradPadded = torch::zeros({batch, channels, input_rows+(2*grad_index_y), input_cols+(2*grad_index_y)});
+  torch::Tensor output = torch::zeros({batch, channels, rowsFinal, colsFinal});
+  torch::Tensor outputPadded = torch::zeros({batch, channels, rowsPadded, colsPadded});
+  torch::Tensor gradPadded = torch::zeros({batch, channels, grad_input_rows, grad_input_cols});
 
   // float* input_arr{new float[batch*channels*rows*cols]{input.data_ptr<float>()}};
   // float* kernel_arr{new float(kernelSize*kernelSize){(float*)kernel.data_ptr()}};
@@ -218,7 +218,7 @@ std::vector<torch::Tensor> splatter_backward(
 
                 *(grad_input_arr+(col+l + (row+k )*grad_input_cols + channel*grad_input_rows*grad_input_cols 
                 + imageIndex*channels*grad_input_rows*grad_input_cols)) 
-                += *(kernel_arr+(l+kernelIndex + (k+kernelIndex)*kernelSize + channel*kernelSize*kernelSize + imageIndex*channels*kernelSize*kernelSize)) 
+                += *(kernel_arr+(l+kernelIndex + (k+kernelIndex)*kernelSize)) 
                 * gradTemp;
                 
                 // std::cout<< row-k << " " << col-l << " "<< *(output_padded_arr+(col-l + (row-k )*cols + channel*rows*cols + imageIndex*channels*rows*cols)) <<std::endl;
@@ -279,10 +279,10 @@ std::vector<torch::Tensor> splatter_backward(
         }
         
       }
-      //end of channel
-      // for(int row = 0; row < input_rows -2*grad_index_y+12; row++)
+      // end of channel
+      // for(int row = 0; row < rowsPadded; row++)
       // {
-      //   for(int col = 0; col < input_cols - 2*grad_index_x +12; col++)
+      //   for(int col = 0; col < colsPadded; col++)
       //   {
       //     std::cout << *(output_padded_arr + col + row*colsPadded + channel*rowsFinal*colsFinal + imageIndex*channels*rowsFinal*colsFinal) << " ";
           
@@ -290,25 +290,229 @@ std::vector<torch::Tensor> splatter_backward(
       //   std::cout << std::endl;
         
       // }
+
     }
   }
 
   
 
-  auto options = torch::TensorOptions().dtype(torch::kFloat32);
+  // auto options = torch::TensorOptions().dtype(torch::kFloat32);
 
   //{batch*channels*(rows)*(cols),(rows)*(cols),cols,1}
   
   torch::Tensor new_grad_input = torch::from_blob(grad_input_arr, {batch, channels, grad_input_rows, grad_input_cols});
   
   torch::Tensor new_output = torch::from_blob(output_arr, {batch, channels, rowsFinal, colsFinal});
-  std::cout << "here " << batch << new_output << std::endl;
+  // std::cout << "here " << batch << new_output << std::endl;
   // delete output_arr;
   // delete output_padded_arr;
   // delete kernel_arr;
   // delete input_arr;
   return {new_grad_input.clone(), new_output.clone()}; 
-  std:: cout << "here" << std::endl;
+  
+
+
+  
+}
+
+torch::Tensor splatter_backward_input(
+    torch::Tensor grad_output,
+    torch::Tensor kernel
+    ) 
+{
+      
+  int batch = grad_output.size(0);
+  int channels = grad_output.size(1);
+
+  int grad_output_rows = grad_output.size(2);
+  int grad_output_cols = grad_output.size(3);
+  
+
+  int kernelSize = kernel.size(0);
+  int kernelIndex = kernelSize/2;
+
+  int grad_input_rows = grad_output_rows + 2*kernelIndex;
+  int grad_input_cols = grad_output_cols + 2*kernelIndex;
+  
+
+  torch::Tensor gradPadded = torch::zeros({batch, channels, grad_input_rows, grad_input_cols});
+
+  // float* input_arr{new float[batch*channels*rows*cols]{input.data_ptr<float>()}};
+  // float* kernel_arr{new float(kernelSize*kernelSize){(float*)kernel.data_ptr()}};
+  // float* output_arr {new float(batch*channels*rowsFinal*colsFinal){(float*)output.data_ptr()}};
+  // float* output_padded_arr{ new float(batch*channels*rowsPadded*colsPadded){(float*)outputPadded.data_ptr()}};
+
+
+  float* kernel_arr = (float*)kernel.data_ptr();
+  float* grad_input_arr = (float*)gradPadded.data_ptr();
+  float* grad_output_arr = (float*)grad_output.data_ptr();
+
+  //find grad_input
+  for(int imageIndex = 0; imageIndex< batch; imageIndex++)
+  {
+    for(int channel = 0; channel < channels; channel++)
+    {
+      for(int row = kernelIndex; row < grad_output_rows + kernelIndex; row++)
+      {
+        for(int col = kernelIndex; col < grad_output_cols + kernelIndex; col++)
+        {
+          float gradTemp = *(grad_output_arr +(col -kernelIndex + (row-kernelIndex)*grad_output_cols 
+          + channel*grad_output_rows*grad_output_cols + imageIndex*channels*grad_output_rows*grad_output_cols));
+          // std::cout<<inputTemp << " ";
+          if(gradTemp > .00001)
+          {
+            //kernel multiplication
+            for(int k = -1*kernelIndex; k<= kernelIndex; k++)
+            {
+              for(int l = -1*kernelIndex; l <= kernelIndex; l++)
+              {
+                
+                
+                // std::cout << *(output_arr+(col+l + (row+k)*cols + channel*rows*cols + imageIndex*channel*rows*cols));
+
+                *(grad_input_arr+(col+l + (row+k )*grad_input_cols + channel*grad_input_rows*grad_input_cols 
+                + imageIndex*channels*grad_input_rows*grad_input_cols)) 
+                += *(kernel_arr+(l+kernelIndex + (k+kernelIndex)*kernelSize)) 
+                * gradTemp;
+                
+                // std::cout<< row-k << " " << col-l << " "<< *(output_padded_arr+(col-l + (row-k )*cols + channel*rows*cols + imageIndex*channels*rows*cols)) <<std::endl;
+                
+              }
+            }
+          }
+
+        }
+      }
+
+     
+    }
+  }
+  
+  // auto options = torch::TensorOptions().dtype(torch::kFloat32);
+
+  //{batch*channels*(rows)*(cols),(rows)*(cols),cols,1}
+  
+  torch::Tensor new_grad_input = torch::from_blob(grad_input_arr, {batch, channels, grad_input_rows, grad_input_cols});
+  
+  return new_grad_input.clone();
+  
+}
+
+torch::Tensor splatter_backward_filter(
+    
+    torch::Tensor input,
+    torch::Tensor grad_output
+    
+    ) 
+{
+      
+  int batch = input.size(0);
+  int channels = input.size(1);
+  int input_rows = input.size(2);
+  int input_cols = input.size(3);
+
+  int grad_output_rows = grad_output.size(2);
+  int grad_output_cols = grad_output.size(3);
+  
+  int grad_index_y = grad_output_rows/2;
+  int grad_index_x = grad_output_cols/2;
+
+  // int rowsPadded = input_rows + 2*grad_index_y;
+  // int colsPadded = input_cols + 2*grad_index_x;
+
+  int rowsFinal = input_rows - 2*grad_index_y+1;
+  int colsFinal = input_cols - 2*grad_index_x+1;
+
+ 
+
+
+  torch::Tensor output = torch::zeros({batch, channels, rowsFinal, colsFinal});
+  // torch::Tensor outputPadded = torch::zeros({batch, channels, rowsPadded, colsPadded});
+
+  // float* input_arr{new float[batch*channels*rows*cols]{input.data_ptr<float>()}};
+  // float* kernel_arr{new float(kernelSize*kernelSize){(float*)kernel.data_ptr()}};
+  // float* output_arr {new float(batch*channels*rowsFinal*colsFinal){(float*)output.data_ptr()}};
+  // float* output_padded_arr{ new float(batch*channels*rowsPadded*colsPadded){(float*)outputPadded.data_ptr()}};
+
+
+  float* input_arr = (float*)input.data_ptr();
+  float* output_arr = (float*)output.data_ptr();
+  float* grad_output_arr = (float*)grad_output.data_ptr();
+  // float* output_padded_arr = (float*)outputPadded.data_ptr();
+
+  // float output_arr1[batch][channels][rowsFinal][colsFinal] = {0};
+  // float output_padded_arr1[batch][channels][rowsPadded][colsPadded] = {0};
+
+  // float* output_arr = new float[batch*channels*rowsFinal*colsFinal] ;
+  // float* output_padded_arr = new float[batch*channels*rowsPadded*colsPadded];
+
+
+  //calculate filter thingy
+  for(int imageIndex = 0; imageIndex< batch; imageIndex++)
+  {
+    for(int channel = 0; channel < channels; channel++)
+    {
+      for(int row = 0; row < rowsFinal; row++)
+      {
+        for(int col = 0; col < colsFinal ; col++)
+        {
+          int outputTempIndex =  (col + (row)*colsFinal + channel*colsFinal*rowsFinal + imageIndex*channels*rowsFinal*colsFinal);
+          
+          // std::cout<<outputTempIndex << std::endl;
+          
+          //kernel multiplication
+          for(int k = -1*grad_index_y; k< grad_index_y; k++)
+          {
+            for(int l = -1*grad_index_x; l < grad_index_x; l++)
+            {
+              
+              
+              // std::cout << *(output_arr+(col+l + (row+k)*cols + channel*rows*cols + imageIndex*channel*rows*cols));
+              float inputTemp = *(input_arr+(l+grad_index_x+col + (k+grad_index_x+row)*input_cols + channel*input_rows*input_cols
+                + imageIndex*channels*input_rows*input_cols));
+              *(output_arr + col + row*colsFinal + channel*colsFinal*rowsFinal + imageIndex*channels*rowsFinal*colsFinal)
+              += *(grad_output_arr + (l+grad_index_x + (k+grad_index_x)*grad_output_cols + channel*grad_output_rows*grad_output_cols 
+              + imageIndex*channels*grad_output_rows*grad_output_cols)) * inputTemp;
+              
+              // std::cout<< *(output_arr + outputTempIndex) << " " << inputTemp << " " << *(grad_output_arr + (l+grad_index_x + (k+grad_index_x)*grad_output_cols + channel*grad_output_rows*grad_output_cols 
+              // + imageIndex*channels*grad_output_rows*grad_output_cols))<<std::endl;
+              
+            }
+          }
+          
+
+        }
+      }
+      
+      // for(int row = 0; row < input_rows -2*grad_index_y+1; row++)
+      // {
+      //   for(int col = 0; col < input_cols - 2*grad_index_x +1; col++)
+      //   {
+      //     *(output_arr + col + row*colsFinal + channel*rowsFinal*colsFinal + imageIndex*channels*rowsFinal*colsFinal) 
+      //     = *(output_padded_arr + col + 2*grad_index_x + (row+2*grad_index_y)*colsPadded + channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded);
+      //   }
+        
+      // }
+      // end of channel
+      // for(int row = 0; row < rowsFinal; row++)
+      // {
+      //   for(int col = 0; col < colsFinal; col++)
+      //   {
+      //     std::cout << *(output_arr + col + row*colsFinal + channel*rowsFinal*colsFinal + imageIndex*channels*rowsFinal*colsFinal) << " ";
+          
+      //   }
+      //   std::cout << std::endl;
+        
+      // }
+
+    }
+  }
+
+  
+  torch::Tensor new_output = torch::from_blob(output_arr, {batch, channels, rowsFinal, colsFinal});
+
+  return new_output.clone(); 
+  
 
 
   
@@ -317,4 +521,6 @@ std::vector<torch::Tensor> splatter_backward(
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("forward", &splatter_forward, "splatter forward");
   m.def("backward", &splatter_backward, "splatter backward");
+  m.def("backward_input", &splatter_backward_input, "splatter backward input");
+  m.def("backward_filter", &splatter_backward_filter, "splatter backward filter");
 }

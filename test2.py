@@ -180,13 +180,14 @@ def splatter_backward_filter_full(input, kernel):
 @profile
 def test():
 
-    input = torch.rand(3,1,24,24)
+    input = torch.rand(100,1,16,16)
     kernel = torch.rand(3,3)
-    kernels = torch.rand(3, 1, 3,3)
+    kernels = torch.rand(100, 1, 3,3)
 
-    output = splatter_cpp.forward(input, kernel)
-    inputs = splatter_backward_input_full(output, kernel)
+    output1 = splatter_forward_full(input, kernel)
+    inputs = splatter_backward_input_full(output1, kernel)
     filters = splatter_backward_filter_full(input, kernels)
+    output = splatter_cpp.forward(input, kernel)
     inputs2, filters2 = splatter_cpp.backward(output, kernels, input)
 
 test()

@@ -23,22 +23,29 @@ class Splatter_Conv2d(torch.autograd.Function):
         result = splatter_cpp.forward(input, filter)
 
         # result = splat_corr2d(input.numpy(), filter.numpy(), mode="valid") # supposed to be correlate
-        result += bias.numpy()
+        # result += bias.numpy()
+        # torch.add(result, bias)
         ctx.save_for_backward(input, filter, bias)
-        return torch.as_tensor(result, dtype=input.dtype)
+        return result
 
     @staticmethod
     def backward(ctx, grad_output):
         grad_output = grad_output.detach()
         input, filter, bias = ctx.saved_tensors
-        grad_output = grad_output.numpy()
-        grad_bias = np.sum(grad_output, keepdims=True)
-        grad_input = splatter_backward_input_full(grad_output, filter.numpy())
+        # grad_output = grad_output.numpy()
+        grad_bias = np.sum(grad_output.numpy(), keepdims=True)
+
+        # grad_bias = torch.sum(grad_output,dim=grad_output.dim, keepdim=True)
+
+        # grad_input = splatter_backward_input_full(grad_output, filter.numpy())
         # the previous line can be expressed equivalently as:
         # grad_input = correlate2d(grad_output, flip(flip(filter.numpy(), axis=0), axis=1), mode='full')
         # grad_filter = splat_corr2d(input.numpy(), grad_output, mode="valid") # was correlate
-        grad_filter = splatter_backward_filter_full(input.numpy(), grad_output)
-        return torch.from_numpy(grad_input), torch.from_numpy(grad_filter).to(torch.float), torch.from_numpy(grad_bias).to(torch.float)
+        # grad_filter = splatter_backward_filter_full(input.numpy(), grad_output)
+
+        grad_input = splatter_cpp.backward_input(grad_output, filter)
+        grad_filter = splatter_cpp.backward_filter(input, grad_output)
+        return grad_input, grad_filter, torch.tensor(grad_bias)
 
 
 class Splatter(Module):
