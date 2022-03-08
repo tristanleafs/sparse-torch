@@ -17,7 +17,7 @@ class Splatter_Conv2d(torch.autograd.Function):
     def forward(ctx, input, filter, bias):
         # detach so we can cast to NumPy
         input, filter, bias = input.detach(), filter.detach(), bias.detach()
-        input, filter = input.float(), filter.float()
+        # input, filter = input.float(), filter.float()
         
         # result = splatter_forward_full(input.numpy(), filter.numpy())
         result = splatter_cpp.forward(input, filter)
