@@ -1,6 +1,7 @@
 #include <torch/extension.h>
 #include <vector>
 #include <stdio.h>
+#include <chrono>
 
 // s'(z) = (1 - s(z)) * s(z)
 // torch::Tensor d_sigmoid(torch::Tensor z) {
@@ -26,6 +27,8 @@ torch::Tensor splatter_forward(
     torch::Tensor input,
     torch::Tensor kernel) {
   
+
+  // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   int batch = input.size(0);
   int channels = input.size(1);
   int rows = input.size(2);
@@ -34,16 +37,19 @@ torch::Tensor splatter_forward(
 
   int kernelSize = kernel.size(0);
   int kernelIndex = kernelSize/2;
-
+  int largeIndex = 2*kernelIndex;
   int rowsPadded = rows + 2*kernelIndex;
   int colsPadded = cols + 2*kernelIndex;
 
-  int rowsFinal = rows - 2*kernelIndex;
-  int colsFinal = cols - 2*kernelIndex;
+  int rowsFinal = rows - largeIndex;
+  int colsFinal = cols - largeIndex;
 
 
-  torch::Tensor output = torch::zeros({batch, channels, rows-(2*kernelIndex), cols-(2*kernelIndex)});
-  torch::Tensor outputPadded = torch::zeros({batch, channels, rows+(2*kernelIndex), cols+(2*kernelIndex)});
+  // torch::Tensor output = torch::zeros({batch, channels, rows-(2*kernelIndex), cols-(2*kernelIndex)});
+  // torch::Tensor outputPadded = torch::zeros({batch, channels, rows+(2*kernelIndex), cols+(2*kernelIndex)});
+
+  int outputSize = batch*channels*rowsFinal*colsFinal;
+  int outputPaddedSize = batch*channels*rowsPadded*colsPadded;
 
   // float* input_arr{new float[batch*channels*rows*cols]{input.data_ptr<float>()}};
   // float* kernel_arr{new float(kernelSize*kernelSize){(float*)kernel.data_ptr()}};
@@ -53,22 +59,38 @@ torch::Tensor splatter_forward(
 
   float* input_arr = (float*)input.data_ptr();
   float* kernel_arr = (float*)kernel.data_ptr();
-  float* output_arr = (float*)output.data_ptr();
-  float* output_padded_arr = (float*)outputPadded.data_ptr();
+  // float* output_arr = (float*)output.data_ptr();
+  // float* output_padded_arr = (float*)outputPadded.data_ptr();
 
+  float* output_arr = new float[outputSize]();
+  float* output_padded_arr = new float[outputPaddedSize]();
+
+  // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+  // float* output_arr = &output_arr;
+  // float* output_padded_arr = &output_padded_arr1;
+  // begin = std::chrono::steady_clock::now();
+  
   for(int imageIndex = 0; imageIndex< batch; imageIndex++)
   {
+    
     for(int channel = 0; channel < channels; channel++)
     {
+      int padOffset = channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded;
+      int finalOffset = channel*rowsFinal*colsFinal + imageIndex*channels*rowsFinal*colsFinal;
+      // std::cout << padOffset << std::endl;
       for(int row = kernelIndex; row < rows + kernelIndex; row++)
       {
         for(int col = kernelIndex; col < cols + kernelIndex; col++)
         {
-          float inputTemp = *(input_arr +(col -kernelIndex + (row-kernelIndex)*cols + channel*rows*cols + imageIndex*channels*rows*cols));
+          // float inputTemp = *(input_arr +(col -kernelIndex + (row-kernelIndex)*cols + channel*rows*cols + imageIndex*channels*rows*cols));
+          float inputTemp = *input_arr;
+          input_arr++;
           // std::cout<<inputTemp << " ";
-          if(inputTemp > .00001)
+          if(inputTemp > .00002)
           {
             //kernel multiplication
+            // int padOffset = channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded;
             for(int k = -1*kernelIndex; k<= kernelIndex; k++)
             {
               for(int l = -1*kernelIndex; l <= kernelIndex; l++)
@@ -76,9 +98,10 @@ torch::Tensor splatter_forward(
                 
                 
                 // std::cout << *(output_arr+(col+l + (row+k)*cols + channel*rows*cols + imageIndex*channel*rows*cols));
-
-                *(output_padded_arr+(col-l + (row-k )*colsPadded + channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded)) 
+                // if(row-k-largeIndex >= 0 && col-l -largeIndex >= 0 && row-k  -largeIndex < rowsFinal  && col-l -largeIndex < colsFinal){
+                *(output_padded_arr+(col-l + (row-k )*colsPadded + padOffset)) 
                 += *(kernel_arr+(l+kernelIndex + (k+kernelIndex)*kernelSize)) * inputTemp;
+                // }
                 
                 // std::cout<< row-k << " " << col-l << " "<< *(output_padded_arr+(col-l + (row-k )*cols + channel*rows*cols + imageIndex*channels*rows*cols)) <<std::endl;
                 
@@ -88,12 +111,14 @@ torch::Tensor splatter_forward(
 
         }
       }
+      
+      
       for(int row = 0; row < rows -2*kernelIndex; row++)
       {
         for(int col = 0; col < cols - 2*kernelIndex; col++)
         {
-          *(output_arr + col + row*colsFinal + channel*rowsFinal*colsFinal + imageIndex*channels*rowsFinal*colsFinal) 
-          = *(output_padded_arr + col + 2*kernelIndex + (row+2*kernelIndex)*colsPadded + channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded);
+          *(output_arr + col + row*colsFinal + finalOffset) 
+          = *(output_padded_arr + col + 2*kernelIndex + (row+2*kernelIndex)*colsPadded + padOffset);
         }
         
       }
@@ -126,13 +151,169 @@ torch::Tensor splatter_forward(
   // auto options = torch::TensorOptions().dtype(torch::kFloat32);
 
   //{batch*channels*(rows)*(cols),(rows)*(cols),cols,1}
-
+  // end = std::chrono::steady_clock::now();
+  // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+  // begin = std::chrono::steady_clock::now();
   torch::Tensor new_output = torch::from_blob(output_arr, {batch, channels, rowsFinal, colsFinal});
   // delete output_arr;
   // delete output_padded_arr;
   // delete kernel_arr;
   // delete input_arr;
-  return new_output.clone();
+  
+
+  new_output = new_output.clone();
+  delete [] output_arr;
+  delete [] output_padded_arr;
+  // end = std::chrono::steady_clock::now();
+  // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+  return (new_output);
+}
+
+
+torch::Tensor splatter_forward_non_sparse(
+    torch::Tensor input,
+    torch::Tensor kernel) {
+  
+
+  // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+  int batch = input.size(0);
+  int channels = input.size(1);
+  int rows = input.size(2);
+  int cols = input.size(3);
+  
+
+  int kernelSize = kernel.size(0);
+  int kernelIndex = kernelSize/2;
+  int largeIndex = 2*kernelIndex;
+  int rowsPadded = rows + 2*kernelIndex;
+  int colsPadded = cols + 2*kernelIndex;
+
+  int rowsFinal = rows - largeIndex;
+  int colsFinal = cols - largeIndex;
+
+
+  // torch::Tensor output = torch::zeros({batch, channels, rows-(2*kernelIndex), cols-(2*kernelIndex)});
+  // torch::Tensor outputPadded = torch::zeros({batch, channels, rows+(2*kernelIndex), cols+(2*kernelIndex)});
+
+  int outputSize = batch*channels*rowsFinal*colsFinal;
+  int outputPaddedSize = batch*channels*rowsPadded*colsPadded;
+
+  // float* input_arr{new float[batch*channels*rows*cols]{input.data_ptr<float>()}};
+  // float* kernel_arr{new float(kernelSize*kernelSize){(float*)kernel.data_ptr()}};
+  // float* output_arr {new float(batch*channels*rowsFinal*colsFinal){(float*)output.data_ptr()}};
+  // float* output_padded_arr{ new float(batch*channels*rowsPadded*colsPadded){(float*)outputPadded.data_ptr()}};
+
+
+  float* input_arr = (float*)input.data_ptr();
+  float* kernel_arr = (float*)kernel.data_ptr();
+  // float* output_arr = (float*)output.data_ptr();
+  // float* output_padded_arr = (float*)outputPadded.data_ptr();
+
+  float* output_arr = new float[outputSize]();
+  float* output_padded_arr = new float[outputPaddedSize]();
+
+  // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+  // float* output_arr = &output_arr;
+  // float* output_padded_arr = &output_padded_arr1;
+  // begin = std::chrono::steady_clock::now();
+  
+  for(int imageIndex = 0; imageIndex< batch; imageIndex++)
+  {
+    
+    for(int channel = 0; channel < channels; channel++)
+    {
+      int padOffset = channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded;
+      int finalOffset = channel*rowsFinal*colsFinal + imageIndex*channels*rowsFinal*colsFinal;
+      // std::cout << padOffset << std::endl;
+      for(int row = kernelIndex; row < rows + kernelIndex; row++)
+      {
+        for(int col = kernelIndex; col < cols + kernelIndex; col++)
+        {
+          // float inputTemp = *(input_arr +(col -kernelIndex + (row-kernelIndex)*cols + channel*rows*cols + imageIndex*channels*rows*cols));
+          float inputTemp = *input_arr;
+          input_arr++;
+          // std::cout<<inputTemp << " ";
+          // if(inputTemp > .00002)
+          // {
+            //kernel multiplication
+            // int padOffset = channel*rowsPadded*colsPadded + imageIndex*channels*rowsPadded*colsPadded;
+            for(int k = -1*kernelIndex; k<= kernelIndex; k++)
+            {
+              for(int l = -1*kernelIndex; l <= kernelIndex; l++)
+              {
+                
+                
+                // std::cout << *(output_arr+(col+l + (row+k)*cols + channel*rows*cols + imageIndex*channel*rows*cols));
+                // if(row-k-largeIndex >= 0 && col-l -largeIndex >= 0 && row-k  -largeIndex < rowsFinal  && col-l -largeIndex < colsFinal){
+                *(output_padded_arr+(col-l + (row-k )*colsPadded + padOffset)) 
+                += *(kernel_arr+(l+kernelIndex + (k+kernelIndex)*kernelSize)) * inputTemp;
+                // }
+                
+                // std::cout<< row-k << " " << col-l << " "<< *(output_padded_arr+(col-l + (row-k )*cols + channel*rows*cols + imageIndex*channels*rows*cols)) <<std::endl;
+                
+              }
+            }
+          // }
+
+        }
+      }
+      
+      
+      for(int row = 0; row < rows -2*kernelIndex; row++)
+      {
+        for(int col = 0; col < cols - 2*kernelIndex; col++)
+        {
+          *(output_arr + col + row*colsFinal + finalOffset) 
+          = *(output_padded_arr + col + 2*kernelIndex + (row+2*kernelIndex)*colsPadded + padOffset);
+        }
+        
+      }
+      //end of channel
+    }
+  }
+
+  // std::cout << std::endl << *output_arr << " " << *(output_arr+1) << std::endl;
+
+  
+
+  // for(int row = 0; row < rows+2; row++)
+  // {
+  //   for(int col = 0; col < cols+2; col++)
+  //   {
+  //     std::cout << *(output_padded_arr + col + row*colsPadded) << " ";
+  //   }
+  //   std::cout << std::endl;
+  // }
+
+  // for(int row = 0; row < rows-2; row++)
+  // {
+  //   for(int col = 0; col < cols-2; col++)
+  //   {
+  //     std::cout << *(output_arr + col + row*colsFinal) << " ";
+  //   }
+  //   std::cout << std::endl << std::endl;
+  // }
+
+  // auto options = torch::TensorOptions().dtype(torch::kFloat32);
+
+  //{batch*channels*(rows)*(cols),(rows)*(cols),cols,1}
+  // end = std::chrono::steady_clock::now();
+  // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+  // begin = std::chrono::steady_clock::now();
+  torch::Tensor new_output = torch::from_blob(output_arr, {batch, channels, rowsFinal, colsFinal});
+  // delete output_arr;
+  // delete output_padded_arr;
+  // delete kernel_arr;
+  // delete input_arr;
+  
+
+  new_output = new_output.clone();
+  delete [] output_arr;
+  delete [] output_padded_arr;
+  // end = std::chrono::steady_clock::now();
+  // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count() << "[ns]" << std::endl;
+  return (new_output);
 }
 
 std::vector<torch::Tensor> splatter_backward(
@@ -520,6 +701,7 @@ torch::Tensor splatter_backward_filter(
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("forward", &splatter_forward, "splatter forward");
+  m.def("forward_non_sparse", &splatter_forward_non_sparse, "splatter forward non sparse");
   m.def("backward", &splatter_backward, "splatter backward");
   m.def("backward_input", &splatter_backward_input, "splatter backward input");
   m.def("backward_filter", &splatter_backward_filter, "splatter backward filter");
