@@ -102,6 +102,37 @@ class Splatter_Non_Sparse(Module):
     def forward(self, input):
         return Splatter_Conv2d_non_sparse.apply(input, self.filter, self.bias)
 
+def get_sparcity(tensor):
+    return float(1-(tensor.count_nonzero().item())/float(tensor.numel()))
+
+class Save_Output_body(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bias, filter, file_name):
+    
+        f = open(file_name, 'a')
+        f.write(str(get_sparcity(input)))
+        f.write(',')
+        f.close()
+        ctx.save_for_backward(input)
+        # torch.add(result, bias)
+        return input
+
+    @staticmethod
+    def backward(ctx, output):
+        
+        return output
+
+
+class Save_Output(Module):
+    def __init__(self, file_name: str):
+        super(Save_Output, self).__init__()
+        self.bias = Parameter(torch.randn(1,1))
+        self.filter = Parameter(torch.randn(1,1))
+        self.file_name = file_name
+        
+    def forward(self, input):
+        return Save_Output_body.apply(input, self.bias, self.filter, self.file_name )
+
 
 
 
@@ -120,8 +151,9 @@ class Splatter_Non_Sparse(Module):
 # print("test 1 passed")
 # test 2
 
+# from torch.autograd.gradcheck import gradcheck
 
-# moduleConv = Splatter(3, 3)
+# moduleConv = Save_Output()
 
 # input = [torch.randn(1, 1, 20, 20, dtype=torch.double, requires_grad=True)]
 # test = gradcheck(moduleConv, input, eps=1e-3, atol=1e-4)
