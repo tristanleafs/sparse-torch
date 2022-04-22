@@ -113,14 +113,14 @@ class Save_Output_body(torch.autograd.Function):
         f.write(str(get_sparcity(input)))
         f.write(',')
         f.close()
-        ctx.save_for_backward(input)
+        ctx.save_for_backward(input, bias, filter, input)
         # torch.add(result, bias)
         return input
 
     @staticmethod
     def backward(ctx, output):
         
-        return output
+        return output, ctx.bias, ctx.filter, ctx.input
 
 
 class Save_Output(Module):
