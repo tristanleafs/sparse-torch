@@ -115,7 +115,7 @@ class Save_Output_body(torch.autograd.Function):
         f.close()
         ctx.save_for_backward(input, bias, filter, input)
         # torch.add(result, bias)
-        return input
+        return input.clone()
 
     @staticmethod
     def backward(ctx, output):
